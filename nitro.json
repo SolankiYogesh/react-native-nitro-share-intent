@@ -1,0 +1,17 @@
+{
+  "cxxNamespace": ["nitroshareintent"],
+  "ios": {
+    "iosModuleName": "NitroShareIntent"
+  },
+  "android": {
+    "androidNamespace": ["nitroshareintent"],
+    "androidCxxLibName": "nitroshareintent"
+  },
+  "autolinking": {
+    "NitroShareIntent": {
+      "swift": "NitroShareIntent",
+      "kotlin": "NitroShareIntent"
+    }
+  },
+  "ignorePaths": ["node_modules"]
+}
