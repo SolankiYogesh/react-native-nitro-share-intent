@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,23 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { SharePayload, useShareIntent } from 'react-native-nitro-share-intent';
+import {
+  SharePayload,
+  useShareIntent,
+  getInitialShare,
+} from 'react-native-nitro-share-intent';
 const App = () => {
   const [shares, setShares] = useState<SharePayload[]>([]);
-  useShareIntent((payload: SharePayload) => {
-    console.log('payload', payload);
 
+  useEffect(() => {
+    getInitialShare().then((payload: SharePayload) => {
+      setShares((state) => {
+        return [...state, payload];
+      });
+    });
+  }, []);
+
+  useShareIntent((payload: SharePayload) => {
     setShares((state) => {
       return [...state, payload];
     });

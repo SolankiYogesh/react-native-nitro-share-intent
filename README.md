@@ -5,6 +5,7 @@ A powerful React Native library for handling native share intents on iOS and And
 ![React Native](https://img.shields.io/badge/React%20Native-0.81+-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)
 
 ## ✨ Features
 

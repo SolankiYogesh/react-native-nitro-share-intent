@@ -9,7 +9,6 @@ export function useShareIntent(
 ) {
   useEffect(() => {
     shareIntentModule.onIntentListener((payload) => {
-      console.log('payload', payload);
       onShareReceived(payload);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
