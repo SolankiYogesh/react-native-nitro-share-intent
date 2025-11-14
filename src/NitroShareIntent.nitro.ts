@@ -11,6 +11,6 @@ export type SharePayload = {
 
 export interface NitroShareIntent
   extends HybridObject<{ ios: 'swift'; android: 'kotlin' }> {
-  getInitialShare(): Promise<SharePayload | null>;
+  getInitialShare(): Promise<SharePayload | undefined>;
   onIntentListener(listener: (payload: SharePayload) => void): number;
 }

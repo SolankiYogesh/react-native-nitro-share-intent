@@ -25,6 +25,7 @@ import java.io.FileOutputStream
 import java.util.Date
 import androidx.core.net.toUri
 import com.facebook.react.bridge.ActivityEventListener
+import com.margelo.nitro.core.NullType
 
 @DoNotStrip
 class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
@@ -46,15 +47,7 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
     }
   }
 
-  init {
-    NitroModules.applicationContext.let { ctx->
-      ctx?.addActivityEventListener(this)
-    }
-  }
-
-
   override fun getInitialShare(): Promise<SharePayload?> {
-
     val intent = NitroModules.applicationContext?.currentActivity?.intent
 
     return if (intent != null && isShareIntent(intent)) {
@@ -62,6 +55,12 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
       Promise.resolved(processIntent(intent))
     } else {
       Promise.resolved(SharePayload(ShareType.TEXT, null, null, null))
+    }
+  }
+
+  init {
+    NitroModules.applicationContext.let { ctx->
+      ctx?.addActivityEventListener(this)
     }
   }
 
