@@ -13,8 +13,8 @@
     "@react-native/new-app-screen": "0.81.5",
     "react": "19.1.0",
     "react-native": "0.81.5",
-    "react-native-nitro-share-intent": "workspace:^",
-    "react-native-safe-area-context": "^5.5.2"
+    "react-native-nitro-modules": "^0.31.6",
+    "react-native-nitro-share-intent": "workspace:^"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

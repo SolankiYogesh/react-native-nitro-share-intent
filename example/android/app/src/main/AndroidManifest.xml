@@ -22,7 +22,7 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
-      </activity>
+    
               
         <!-- Share Intent Filters for Testing -->
         <intent-filter>
@@ -66,5 +66,6 @@
             <category android:name="android.intent.category.DEFAULT" />
             <data android:mimeType="application/*" />
         </intent-filter>
+    </activity>
     </application>
 </manifest>
