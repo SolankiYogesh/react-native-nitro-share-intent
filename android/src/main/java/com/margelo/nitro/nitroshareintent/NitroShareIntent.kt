@@ -54,7 +54,7 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
 
       Promise.resolved(processIntent(intent))
     } else {
-      Promise.resolved(SharePayload(ShareType.TEXT, null, null, null))
+      Promise.resolved(null)
     }
   }
 
