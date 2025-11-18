@@ -70,28 +70,7 @@ npm install react-native-nitro-share-intent react-native-nitro-modules
    ```
 
 ### Android Setup
-
-1. **Add to MainActivity.java/kt**:
-
-   ```kotlin
-   import com.margelo.nitro.nitroshareintent.NitroShareIntent
-
-   override fun onCreate(savedInstanceState: Bundle?) {
-     super.onCreate(savedInstanceState)
-     // Your existing code...
-
-     // Handle initial share intent
-     NitroShareIntent.instance.handleIntent(intent)
-   }
-
-   override fun onNewIntent(intent: Intent) {
-     super.onNewIntent(intent)
-     // Handle new share intents
-     NitroShareIntent.instance.handleIntent(intent)
-   }
-   ```
-
-2. **Configure Intent Filters in AndroidManifest.xml**:
+**Configure Intent Filters in AndroidManifest.xml**:
 
    ```xml
    <activity
