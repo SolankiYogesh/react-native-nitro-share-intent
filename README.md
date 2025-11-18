@@ -29,18 +29,18 @@ npm install react-native-nitro-share-intent react-native-nitro-modules
 ### iOS Setup
 
 1. **Add to AppDelegate.swift**:
+
    ```swift
-   import NitroShareIntent
-   
+
    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
      // Your existing code...
-     
+
      // Notify NitroShareIntent about app launch
      NotificationCenter.default.post(name: NSNotification.Name("AppDidFinishLaunching"), object: nil)
-     
+
      return true
    }
-   
+
    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
      // Handle share intent URLs
      NotificationCenter.default.post(
@@ -72,17 +72,18 @@ npm install react-native-nitro-share-intent react-native-nitro-modules
 ### Android Setup
 
 1. **Add to MainActivity.java/kt**:
+
    ```kotlin
    import com.margelo.nitro.nitroshareintent.NitroShareIntent
-   
+
    override fun onCreate(savedInstanceState: Bundle?) {
      super.onCreate(savedInstanceState)
      // Your existing code...
-     
+
      // Handle initial share intent
      NitroShareIntent.instance.handleIntent(intent)
    }
-   
+
    override fun onNewIntent(intent: Intent) {
      super.onNewIntent(intent)
      // Handle new share intents
@@ -91,26 +92,27 @@ npm install react-native-nitro-share-intent react-native-nitro-modules
    ```
 
 2. **Configure Intent Filters in AndroidManifest.xml**:
+
    ```xml
    <activity
      android:name=".MainActivity"
      android:exported="true"
      android:launchMode="singleTop">
-   
+
      <!-- Handle text sharing -->
      <intent-filter>
        <action android:name="android.intent.action.SEND" />
        <category android:name="android.intent.category.DEFAULT" />
        <data android:mimeType="text/plain" />
      </intent-filter>
-   
+
      <!-- Handle file sharing -->
      <intent-filter>
        <action android:name="android.intent.action.SEND" />
        <category android:name="android.intent.category.DEFAULT" />
        <data android:mimeType="*/*" />
      </intent-filter>
-   
+
      <!-- Handle multiple file sharing -->
      <intent-filter>
        <action android:name="android.intent.action.SEND_MULTIPLE" />

@@ -7,7 +7,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import {
-  SharePayload,
+  type SharePayload,
   useShareIntent,
   getInitialShare,
 } from 'react-native-nitro-share-intent';
@@ -15,10 +15,11 @@ const App = () => {
   const [shares, setShares] = useState<SharePayload[]>([]);
 
   useEffect(() => {
-    getInitialShare().then((payload: SharePayload) => {
-      setShares((state) => {
-        return [...state, payload];
-      });
+    getInitialShare().then((payload) => {
+      if (payload)
+        setShares((state) => {
+          return [...state, payload];
+        });
     });
   }, []);
 

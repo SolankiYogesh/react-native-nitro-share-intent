@@ -1,4 +1,4 @@
-package com.nitroshareintentexample
+package nitroshareintent.example
 
 import android.app.Application
 import com.facebook.react.PackageList

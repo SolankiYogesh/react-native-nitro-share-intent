@@ -1,7 +1,7 @@
 {
   "name": "react-native-nitro-share-intent",
   "version": "0.4.0",
-  "description": "use native share intent for ios and android with nitro",
+  "description": "A powerful React Native library for handling native share intents on iOS and Android. Built with Nitro Modules for optimal performance. Handle text sharing, file sharing, and multiple file sharing from other apps.",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
@@ -45,8 +45,28 @@
   },
   "keywords": [
     "react-native",
+    "share-intent",
+    "share",
+    "intent",
+    "sharing",
+    "file-sharing",
+    "text-sharing",
     "ios",
-    "android"
+    "android",
+    "nitro",
+    "nitro-modules",
+    "cross-platform",
+    "native",
+    "typescript",
+    "file-handling",
+    "app-integration",
+    "deep-linking",
+    "url-scheme",
+    "content-sharing",
+    "media-sharing",
+    "image-sharing",
+    "video-sharing",
+    "document-sharing"
   ],
   "repository": {
     "type": "git",
