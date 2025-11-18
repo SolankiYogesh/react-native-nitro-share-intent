@@ -6,10 +6,9 @@ import ReactAppDependencyProvider
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
   var window: UIWindow?
-
   var reactNativeDelegate: ReactNativeDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
-
+  
   func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
@@ -28,7 +27,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       in: window,
       launchOptions: launchOptions
     )
+    
+    // Notify NitroShareIntent that app finished launching
+    NotificationCenter.default.post(name: NSNotification.Name("AppDidFinishLaunching"), object: nil)
 
+    return true
+  }
+  
+  func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+    // Simply notify NitroShareIntent - it handles everything
+    NotificationCenter.default.post(
+        name: NSNotification.Name("ShareIntentReceived"),
+        object: nil,
+        userInfo: ["url": url]
+    )
     return true
   }
 }

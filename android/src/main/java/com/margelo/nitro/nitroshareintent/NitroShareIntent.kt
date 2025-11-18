@@ -51,7 +51,6 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
     val intent = NitroModules.applicationContext?.currentActivity?.intent
 
     return if (intent != null && isShareIntent(intent)) {
-
       Promise.resolved(processIntent(intent))
     } else {
       Promise.resolved(null)
@@ -82,12 +81,10 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
       }
 
       Intent.ACTION_SEND_MULTIPLE -> {
-
         if (type != null) handleMultipleShare(intent) else null
       }
 
       Intent.ACTION_VIEW -> {
-
         intent.dataString?.let { dataString ->
           val extras = mutableMapOf("url" to dataString)
           SharePayload(
@@ -100,7 +97,6 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
       }
 
       else -> {
-
         null
       }
     }
@@ -109,7 +105,6 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
   }
 
   private fun handleSingleShare(intent: Intent, type: String): SharePayload? {
-
     return when {
       type.startsWith("text/") -> {
         val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
@@ -127,7 +122,6 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
 
       else -> {
         val fileUri = intent.parcelable<Uri>(Intent.EXTRA_STREAM)
-
         if (fileUri != null) {
           val fileInfo = getFileInfo(fileUri)
 
@@ -142,7 +136,6 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
   }
 
   private fun handleMultipleShare(intent: Intent): SharePayload? {
-
     val fileUris = intent.parcelableArrayList<Uri>(Intent.EXTRA_STREAM)
 
     if (fileUris.isNullOrEmpty()) return null
@@ -155,10 +148,8 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
     val filePaths = fileUris.map { uri ->
       try {
         val fileInfo = getFileInfo(uri)
-
         fileInfo["filePath"] ?: uri.toString()
       } catch (_: Exception) {
-
         uri.toString()
       }
     }.toTypedArray()
@@ -168,7 +159,6 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
 
   @SuppressLint("Range")
   private fun getFileInfo(uri: Uri): Map<String, String?> {
-
     NitroModules.applicationContext.let { ctx ->
       val resolver: ContentResolver = ctx?.contentResolver ?: return mapOf(
         "contentUri" to uri.toString(),
@@ -176,7 +166,6 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
       )
       val queryResult = resolver.query(uri, null, null, null, null)
       if (queryResult == null) {
-
         return mapOf("filePath" to getAbsolutePath(uri))
       }
 
@@ -190,9 +179,7 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
       var mediaHeight: String? = null
       var mediaDuration: String? = null
 
-
       if (mimeType.startsWith("image/")) {
-
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeStream(resolver.openInputStream(uri), null, options)
         mediaHeight = options.outHeight.toString()
@@ -200,7 +187,6 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
       }
 
       if (mimeType.startsWith("video/")) {
-
         try {
           val retriever = MediaMetadataRetriever()
           retriever.setDataSource(ctx, uri)
@@ -236,13 +222,10 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
 
 
   private fun getAbsolutePath(uri: Uri): String? {
-
     NitroModules.applicationContext.let { ctx ->
       try {
         if (DocumentsContract.isDocumentUri(ctx, uri)) {
-
           if (isExternalStorageDocument(uri)) {
-
             val docId = DocumentsContract.getDocumentId(uri)
             val split = docId.split(":".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
             val type = split[0]
@@ -250,7 +233,6 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
               Environment.getExternalStorageDirectory().toString() + "/" + split[1]
             } else getDataColumn(uri, null, null)
           } else if (isDownloadsDocument(uri)) {
-
             return try {
               val id = DocumentsContract.getDocumentId(uri)
               val contentUri = ContentUris.withAppendedId(
@@ -262,7 +244,6 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
               getDataColumn(uri, null, null)
             }
           } else if (isMediaDocument(uri)) {
-
             val docId = DocumentsContract.getDocumentId(uri)
             val split = docId.split(":".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
             val type = split[0]
@@ -278,7 +259,6 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
             return getDataColumn(contentUri, selection, selectionArgs)
           }
         } else if ("content".equals(uri.scheme, ignoreCase = true)) {
-
           return getDataColumn(uri, null, null)
         }
 
@@ -291,11 +271,9 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
   }
 
   private fun getDataColumn(uri: Uri, selection: String?, selectionArgs: Array<String>?): String? {
-
     NitroModules.applicationContext.let { ctx ->
       val resolver = ctx?.contentResolver
       if (uri.authority != null) {
-
         var cursor: Cursor? = null
         val column = "_display_name"
         val projection = arrayOf(column)
@@ -343,7 +321,6 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
         if (cursor != null && cursor.moveToFirst()) {
           val columnIndex = cursor.getColumnIndexOrThrow(column)
           val result = cursor.getString(columnIndex)
-
           return result
         }
       } finally {
@@ -355,32 +332,23 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
   }
 
   private fun isExternalStorageDocument(uri: Uri): Boolean {
-    val result = "com.android.externalstorage.documents" == uri.authority
-
-    return result
+    return "com.android.externalstorage.documents" == uri.authority
   }
 
   private fun isDownloadsDocument(uri: Uri): Boolean {
-    val result = "com.android.providers.downloads.documents" == uri.authority
-
-    return result
+    return "com.android.providers.downloads.documents" == uri.authority
   }
 
   private fun isMediaDocument(uri: Uri): Boolean {
-    val result = "com.android.providers.media.documents" == uri.authority
-
-    return result
+    return "com.android.providers.media.documents" == uri.authority
   }
 
   private fun isShareIntent(intent: Intent?): Boolean {
     if (intent == null) {
-
       return false
     }
     val action = intent.action
-    val result = action == Intent.ACTION_SEND || action == Intent.ACTION_SEND_MULTIPLE || action == Intent.ACTION_VIEW
-
-    return result
+    return action == Intent.ACTION_SEND || action == Intent.ACTION_SEND_MULTIPLE || action == Intent.ACTION_VIEW
   }
 
   inline fun <reified T : Parcelable> Intent.parcelable(key: String): T? {
@@ -407,11 +375,10 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
     resultCode: Int,
     data: Intent?
   ) {
-  // TODO Auto-generated method stub
   }
 
   override fun onNewIntent(intent: Intent) {
-handleIntent(intent)
+    handleIntent(intent)
   }
 
 

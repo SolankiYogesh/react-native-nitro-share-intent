@@ -28,13 +28,32 @@ npm install react-native-nitro-share-intent react-native-nitro-modules
 
 ### iOS Setup
 
-1. **Add Share Extension Support** (if needed):
-   - In your `Info.plist`, add support for the file types you want to handle
-   - Configure your app to handle the appropriate URL schemes
+1. **Add to AppDelegate.swift**:
+   ```swift
+   import NitroShareIntent
+   
+   func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+     // Your existing code...
+     
+     // Notify NitroShareIntent about app launch
+     NotificationCenter.default.post(name: NSNotification.Name("AppDidFinishLaunching"), object: nil)
+     
+     return true
+   }
+   
+   func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+     // Handle share intent URLs
+     NotificationCenter.default.post(
+       name: NSNotification.Name("ShareIntentReceived"),
+       object: nil,
+       userInfo: ["url": url]
+     )
+     return true
+   }
+   ```
 
-2. **Configure App Groups** (for iOS share extensions):
+2. **Configure URL Schemes in Info.plist**:
    ```xml
-   <!-- Add to your Info.plist -->
    <key>CFBundleURLTypes</key>
    <array>
      <dict>
@@ -52,44 +71,54 @@ npm install react-native-nitro-share-intent react-native-nitro-modules
 
 ### Android Setup
 
-1. **Configure Intent Filters** in your `AndroidManifest.xml`:
+1. **Add to MainActivity.java/kt**:
+   ```kotlin
+   import com.margelo.nitro.nitroshareintent.NitroShareIntent
+   
+   override fun onCreate(savedInstanceState: Bundle?) {
+     super.onCreate(savedInstanceState)
+     // Your existing code...
+     
+     // Handle initial share intent
+     NitroShareIntent.instance.handleIntent(intent)
+   }
+   
+   override fun onNewIntent(intent: Intent) {
+     super.onNewIntent(intent)
+     // Handle new share intents
+     NitroShareIntent.instance.handleIntent(intent)
+   }
+   ```
 
-```xml
-<activity
-  android:name=".MainActivity"
-  android:exported="true">
-
-  <!-- Handle text sharing -->
-  <intent-filter>
-    <action android:name="android.intent.action.SEND" />
-    <category android:name="android.intent.category.DEFAULT" />
-    <data android:mimeType="text/plain" />
-  </intent-filter>
-
-  <!-- Handle single file sharing -->
-  <intent-filter>
-    <action android:name="android.intent.action.SEND" />
-    <category android:name="android.intent.category.DEFAULT" />
-    <data android:mimeType="*/*" />
-  </intent-filter>
-
-  <!-- Handle multiple file sharing -->
-  <intent-filter>
-    <action android:name="android.intent.action.SEND_MULTIPLE" />
-    <category android:name="android.intent.category.DEFAULT" />
-    <data android:mimeType="*/*" />
-  </intent-filter>
-
-  <!-- Handle URL sharing -->
-  <intent-filter>
-    <action android:name="android.intent.action.VIEW" />
-    <category android:name="android.intent.category.DEFAULT" />
-    <category android:name="android.intent.category.BROWSABLE" />
-    <data android:scheme="http" />
-    <data android:scheme="https" />
-  </intent-filter>
-</activity>
-```
+2. **Configure Intent Filters in AndroidManifest.xml**:
+   ```xml
+   <activity
+     android:name=".MainActivity"
+     android:exported="true"
+     android:launchMode="singleTop">
+   
+     <!-- Handle text sharing -->
+     <intent-filter>
+       <action android:name="android.intent.action.SEND" />
+       <category android:name="android.intent.category.DEFAULT" />
+       <data android:mimeType="text/plain" />
+     </intent-filter>
+   
+     <!-- Handle file sharing -->
+     <intent-filter>
+       <action android:name="android.intent.action.SEND" />
+       <category android:name="android.intent.category.DEFAULT" />
+       <data android:mimeType="*/*" />
+     </intent-filter>
+   
+     <!-- Handle multiple file sharing -->
+     <intent-filter>
+       <action android:name="android.intent.action.SEND_MULTIPLE" />
+       <category android:name="android.intent.category.DEFAULT" />
+       <data android:mimeType="*/*" />
+     </intent-filter>
+   </activity>
+   ```
 
 ## 🚀 Quick Start
 
@@ -248,16 +277,12 @@ import {
 const ShareHandler = () => {
   useShareIntent((payload: SharePayload) => {
     if (ShareIntentUtils.isTextShare(payload)) {
-      // Handle text share
       console.log('Text shared:', payload.text);
     } else if (ShareIntentUtils.isFileShare(payload)) {
-      // Handle file share
       if (ShareIntentUtils.isMultipleFileShare(payload)) {
         console.log('Multiple files shared:', payload.files?.length);
       } else {
         console.log('Single file shared:', payload.files?.[0]);
-
-        // Check file type
         const fileUri = payload.files?.[0];
         if (fileUri && ShareIntentUtils.isImageFile(fileUri)) {
           console.log("It's an image file!");
@@ -285,7 +310,6 @@ useShareIntent((payload: SharePayload) => {
     });
   }
 
-  // Access file metadata from extras
   if (payload.extras) {
     console.log('File metadata:', {
       fileName: payload.extras.fileName,
@@ -338,8 +362,6 @@ useShareIntent((payload: SharePayload) => {
    - Ensure your app is properly configured to handle the share types
 
 ### Debugging
-
-Enable logging to debug share intent issues:
 
 ```typescript
 useShareIntent((payload) => {
