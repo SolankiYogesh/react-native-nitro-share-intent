@@ -1,3 +1,7 @@
 export type { ShareType, SharePayload } from './NitroShareIntent.nitro';
-export { useShareIntent, getInitialShare } from './useShareIntent';
+export {
+  useShareIntent,
+  getInitialShare,
+  clearShareIntent,
+} from './useShareIntent';
 export { ShareIntentUtils } from './ShareIntentUtils';
