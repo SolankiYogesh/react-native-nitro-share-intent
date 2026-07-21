@@ -69,6 +69,26 @@ npm install react-native-nitro-share-intent react-native-nitro-modules
    </array>
    ```
 
+3. **(Optional) Bundled Share Extension + App Group, for the native iOS Share Sheet**:
+
+   The steps above (`AppDelegate` hooks + URL scheme) cover "Open In..." style
+   hand-offs and custom URL schemes. `NitroShareIntent` *also* ships an
+   Inbox-monitoring/polling mechanism (`startInboxMonitoring` /
+   `checkForPendingDocuments` in `ios/NitroShareIntent.swift`) that watches
+   your app's `Documents/Inbox` directory - this is the directory iOS drops
+   files into when another app hands a file to yours via a **Share
+   Extension** (the native "Share Sheet" entry, as opposed to your app
+   opening a `yourapp://` URL).
+   
+   To actually receive shares through the system Share Sheet, you need a
+   real iOS Share Extension target that writes the shared content into a
+   location your main app's Inbox-monitoring logic (or an App Group
+   container) can see. Creating that extra Xcode target requires editing
+   the `.xcodeproj` project file, which isn't safe to script blindly - see
+   [`NOTES.md`](./NOTES.md) in this repo for the exact manual steps a
+   maintainer/consumer needs to follow in Xcode (new target, entitlements,
+   App Group identifier, `NSExtension` Info.plist keys, etc).
+
 ### Android Setup
 **Configure Intent Filters in AndroidManifest.xml**:
 
@@ -76,7 +96,7 @@ npm install react-native-nitro-share-intent react-native-nitro-modules
    <activity
      android:name=".MainActivity"
      android:exported="true"
-     android:launchMode="singleTop">
+     android:launchMode="singleTask">
 
      <!-- Handle text sharing -->
      <intent-filter>
@@ -100,6 +120,35 @@ npm install react-native-nitro-share-intent react-native-nitro-modules
      </intent-filter>
    </activity>
    ```
+
+> ⚠️ **Required: override `onNewIntent` in `MainActivity`**
+>
+> Because the Activity uses `launchMode="singleTask"` (or `singleTop`) - needed so sharing
+> to an already-running instance of your app doesn't spawn a duplicate Activity - Android
+> delivers subsequent share intents through `onNewIntent(Intent)` instead of creating a new
+> Activity. If you don't forward that intent, **re-sharing to an already-running app will
+> never reach JavaScript** (only the very first share, at cold start, will work).
+>
+> Add this override to your `MainActivity.kt` (see `example/android/app/src/main/java/nitroshareintent/example/MainActivity.kt` for a working reference):
+>
+> ```kotlin
+> import android.content.Intent
+>
+> class MainActivity : ReactActivity() {
+>   // ...
+>
+>   override fun onNewIntent(intent: Intent) {
+>     // Keep `Activity.getIntent()` up to date so `getInitialShare()` sees the freshest intent.
+>     setIntent(intent)
+>     // Forwards the intent through React Native's ActivityEventListener mechanism, which
+>     // `NitroShareIntent` is already registered against - this is what actually delivers the
+>     // share to JS. If you already override `onNewIntent` for other purposes (e.g. a deep
+>     // linking library), make sure you still call `super.onNewIntent(intent)` (or otherwise
+>     // forward to `ReactInstanceManager`/`ReactHost`), or shares will silently stop working.
+>     super.onNewIntent(intent)
+>   }
+> }
+> ```
 
 ## 🚀 Quick Start
 
@@ -174,28 +223,52 @@ const handleAppStart = async () => {
 
 ### Hooks
 
-#### `useShareIntent(callback: (payload: SharePayload) => void)`
+#### `useShareIntent(callback: (payload: SharePayload) => void, onError?: (message: string) => void)`
 
-A React hook that listens for incoming share intents.
+A React hook that listens for incoming share intents. Multiple components can each call
+`useShareIntent` independently - every mounted instance gets its own listener and is cleaned
+up automatically when the component unmounts.
+
+The optional second argument is called if the native side fails to read/parse an incoming
+share (e.g. couldn't copy a shared file) - distinct from there simply being nothing shared.
 
 ```typescript
-useShareIntent((payload) => {
-  // Handle the received share
-  console.log('Share received:', payload);
-});
+useShareIntent(
+  (payload) => {
+    // Handle the received share
+    console.log('Share received:', payload);
+  },
+  (message) => {
+    console.warn('Failed to read a shared item:', message);
+  }
+);
 ```
 
 ### Functions
 
 #### `getInitialShare(): Promise<SharePayload | null>`
 
-Retrieves the initial share intent when the app is opened via a share action.
+Retrieves the initial share intent when the app is opened via a share action. Resolves with
+`null` when there is nothing to report (never hangs). Rejects if the native side failed to
+read/parse the pending share.
 
 ```typescript
 const initialShare = await getInitialShare();
 if (initialShare) {
   // Handle the initial share
 }
+```
+
+#### `clearShareIntent(): void`
+
+Clears any pending/cached share intent, so a subsequent `getInitialShare()` call resolves
+with `null` until a new share arrives. Useful once you've consumed/handled the initial share
+and don't want it re-delivered (e.g. to a newly mounted `useShareIntent` listener).
+
+```typescript
+import { clearShareIntent } from 'react-native-nitro-share-intent';
+
+clearShareIntent();
 ```
 
 ### Types
@@ -243,6 +316,34 @@ ShareIntentUtils.getFileExtension(fileUri); // Returns string | undefined
 // Display formatting
 ShareIntentUtils.formatForDisplay(payload); // Returns formatted string
 ```
+
+### Testing / Mocking
+
+`react-native-nitro-share-intent/mock` exports a lightweight, in-memory `MockShareIntentModule`
+so consumer apps can simulate shares in Jest tests without a real device or the native module:
+
+```typescript
+import { MockShareIntentModule } from 'react-native-nitro-share-intent/mock';
+
+const mockModule = new MockShareIntentModule();
+
+const listenerId = mockModule.onIntentListener((payload) => {
+  // assert on `payload` in your test
+});
+
+mockModule.simulateShare({ type: 'text', text: 'Hello from a test' });
+mockModule.simulateError('Something went wrong reading the share');
+
+mockModule.removeListener(listenerId);
+```
+
+### Web Support
+
+Importing `react-native-nitro-share-intent` on `react-native-web` (or any bundler that
+resolves `.web.ts`/`.web.js` files, e.g. Webpack/Metro-for-web) automatically uses a no-op
+stub instead of crashing: `useShareIntent` becomes a no-op, `getInitialShare()` always
+resolves `null`, and `clearShareIntent()` does nothing. `ShareIntentUtils` works identically
+everywhere since it's pure JS.
 
 ## 🔧 Advanced Usage
 
