@@ -28,22 +28,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       in: window,
       launchOptions: launchOptions
     )
-    
-    // Notify NitroShareIntent that app finished launching
-    NotificationCenter.default.post(name: NSNotification.Name("AppDidFinishLaunching"), object: nil)
 
     return true
   }
-  
-  func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
-    // Simply notify NitroShareIntent - it handles everything
-    NotificationCenter.default.post(
-        name: NSNotification.Name("ShareIntentReceived"),
-        object: nil,
-        userInfo: ["url": url]
-    )
-    return true
-  }
+
+  // No NitroShareIntent code needed here: the library installs its own
+  // `application(_:open:options:)` handler at runtime (see
+  // NitroShareIntentAppDelegateHook.m) and watches Documents/Inbox for
+  // "Open In..." hand-offs on its own.
 }
 
 class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {

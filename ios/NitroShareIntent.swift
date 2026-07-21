@@ -17,6 +17,12 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
     private var pendingIntent: SharePayload?
     private var nextListenerId: Double = 0
     private var processedFiles: Set<String> = []
+    // The same URL open can reach us through more than one source (the
+    // auto-installed AppDelegate hook, RCTLinkingManager's
+    // RCTOpenURLNotification, and/or a legacy manual "ShareIntentReceived"
+    // post), so identical URLs arriving within a short window are treated
+    // as a single share.
+    private var recentlyHandledURLs: [String: Date] = [:]
     private var isCheckingInbox = false
     private var hasCheckedInitialInbox = false
     private var inboxCheckTimer: Timer?
@@ -28,6 +34,16 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
         super.init()
         setupNotificationObserver()
         setupAppLifecycleObservers()
+
+        // Tell the launch hook (NitroShareIntentAppDelegateHook.m) that a
+        // consumer exists - it replays any URLs it captured before this
+        // instance was created (e.g. a cold-start custom-scheme open).
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("NitroShareIntentReady"),
+                object: nil
+            )
+        }
     }
 
     func getInitialShare() throws -> Promise<SharePayload?> {
@@ -79,10 +95,24 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
             object: nil
         )
         
+        // Kept for backwards compatibility with pre-0.6.0 manual setups.
+        // Posting this from the AppDelegate is no longer required - inbox
+        // monitoring is already triggered by `getInitialShare()` and the
+        // `didBecomeActive` observer.
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleAppDidFinishLaunching(_:)),
             name: NSNotification.Name("AppDidFinishLaunching"),
+            object: nil
+        )
+
+        // RCTLinkingManager posts this whenever the host app forwards
+        // `application(_:open:options:)` to React Native's Linking module,
+        // so apps with deep linking already wired up need no extra code.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleRCTOpenURL(_:)),
+            name: NSNotification.Name("RCTOpenURLNotification"),
             object: nil
         )
     }
@@ -141,19 +171,9 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
     
     @objc private func handleShareIntent(_ notification: Notification) {
         guard let userInfo = notification.userInfo else { return }
-        
+
         if let url = userInfo["url"] as? URL {
-            let fileKey = url.path
-            if processedFiles.contains(fileKey) {
-                return
-            }
-            processedFiles.insert(fileKey)
-            hasFoundFileInCurrentSession = true
-            
-            inboxCheckTimer?.invalidate()
-            inboxCheckTimer = nil
-            
-            processIntent(url: url)
+            handleIncomingURL(url)
         } else if let text = userInfo["text"] as? String {
             let subject = userInfo["subject"] as? String
             processIntent(text: text, subject: subject)
@@ -164,6 +184,42 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
         }
     }
     
+    @objc private func handleRCTOpenURL(_ notification: Notification) {
+        guard let urlString = notification.userInfo?["url"] as? String,
+              let url = URL(string: urlString) else { return }
+        handleIncomingURL(url)
+    }
+
+    /// Central entry point for a URL delivered by any supported source
+    /// (auto-installed AppDelegate hook, RCTOpenURLNotification, or the
+    /// legacy "ShareIntentReceived" notification). Always called on the
+    /// main thread, since all of those notifications are posted there.
+    private func handleIncomingURL(_ url: URL) {
+        let key = url.absoluteString
+        let now = Date()
+        recentlyHandledURLs = recentlyHandledURLs.filter {
+            now.timeIntervalSince($0.value) < 3.0
+        }
+        if recentlyHandledURLs[key] != nil {
+            return
+        }
+        recentlyHandledURLs[key] = now
+
+        if url.isFileURL {
+            let fileKey = url.path
+            if processedFiles.contains(fileKey) {
+                return
+            }
+            processedFiles.insert(fileKey)
+            hasFoundFileInCurrentSession = true
+
+            inboxCheckTimer?.invalidate()
+            inboxCheckTimer = nil
+        }
+
+        processIntent(url: url)
+    }
+
     private func processIntent(url: URL) {
         if url.isFileURL {
             handleSingleShare(fileUrl: url)

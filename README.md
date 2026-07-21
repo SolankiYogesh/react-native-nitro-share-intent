@@ -5,7 +5,7 @@ A powerful React Native library for handling native share intents on iOS and And
 ![React Native](https://img.shields.io/badge/React%20Native-0.81+-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)
 
 ## ✨ Features
 
@@ -26,33 +26,52 @@ npm install react-native-nitro-share-intent react-native-nitro-modules
 
 > **Note**: `react-native-nitro-modules` is required as this library relies on [Nitro Modules](https://nitro.margelo.com/).
 
+## 🚨 Migrating to 0.6.0
+
+**v0.6.0 removes the need for any custom native code in your app.** Full details
+in [CHANGELOG.md](./CHANGELOG.md); the short version:
+
+- **iOS**: the `AppDelegate.swift` snippets from older versions (the
+  `AppDidFinishLaunching` and `ShareIntentReceived` notification posts) are no
+  longer required. You can delete them - keeping them is also safe, since
+  duplicate deliveries of the same URL are now de-duplicated.
+- **Android**: the `onNewIntent` override in `MainActivity` is no longer
+  required and can be deleted (keep `super.onNewIntent(intent)` if you override
+  it for other reasons). The `AndroidManifest.xml` intent filters and
+  `launchMode="singleTask"` are still needed - that's configuration, not code.
+- **Behavior change (iOS)**: re-sharing the *same* URL or link later in the same
+  app session now delivers a new event each time. Previously, a non-file URL was
+  silently swallowed forever after its first delivery. Only identical URLs
+  arriving within a 3-second window are collapsed into one event.
+- **New opt-out (iOS)**: set `NitroShareIntentAppDelegateProxyEnabled` to `NO`
+  in `Info.plist` to disable the automatic `AppDelegate` hook and keep wiring
+  the notification manually.
+
 ### iOS Setup
 
-1. **Add to AppDelegate.swift**:
+> ✅ **No AppDelegate changes required** (since v0.6.0). The library hooks into the
+> app lifecycle on its own:
+>
+> - At launch it installs an `application(_:open:options:)` handler on your app
+>   delegate at runtime - **only if your app doesn't implement one itself**. If
+>   your `AppDelegate` (or a superclass like Expo's delegate wrapper) already
+>   implements that method, the library never touches it.
+> - If your app forwards URL opens to React Native's Linking module
+>   (`RCTLinkingManager` - i.e. you already have deep linking set up), the
+>   library picks those URLs up automatically via `RCTOpenURLNotification`.
+> - "Open In..." file hand-offs are detected by monitoring your app's
+>   `Documents/Inbox` directory - no delegate code involved.
+>
+> The same URL arriving through more than one of these paths is de-duplicated,
+> so it's also safe to keep the old manual snippet from pre-0.6.0 setups.
+>
+> **Opting out**: set `NitroShareIntentAppDelegateProxyEnabled` to `NO` (Boolean)
+> in your `Info.plist` if you don't want the runtime hook. In that case wire the
+> notification manually - see [Manual AppDelegate setup](#manual-appdelegate-setup-optional)
+> below.
 
-   ```swift
-
-   func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-     // Your existing code...
-
-     // Notify NitroShareIntent about app launch
-     NotificationCenter.default.post(name: NSNotification.Name("AppDidFinishLaunching"), object: nil)
-
-     return true
-   }
-
-   func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
-     // Handle share intent URLs
-     NotificationCenter.default.post(
-       name: NSNotification.Name("ShareIntentReceived"),
-       object: nil,
-       userInfo: ["url": url]
-     )
-     return true
-   }
-   ```
-
-2. **Configure URL Schemes in Info.plist**:
+1. **Configure URL Schemes in Info.plist** (only needed if you receive shares
+   through a custom URL scheme, e.g. from a Share Extension redirect):
    ```xml
    <key>CFBundleURLTypes</key>
    <array>
@@ -69,9 +88,9 @@ npm install react-native-nitro-share-intent react-native-nitro-modules
    </array>
    ```
 
-3. **(Optional) Bundled Share Extension + App Group, for the native iOS Share Sheet**:
+2. **(Optional) Bundled Share Extension + App Group, for the native iOS Share Sheet**:
 
-   The steps above (`AppDelegate` hooks + URL scheme) cover "Open In..." style
+   The steps above (automatic URL handling + URL scheme) cover "Open In..." style
    hand-offs and custom URL schemes. `NitroShareIntent` *also* ships an
    Inbox-monitoring/polling mechanism (`startInboxMonitoring` /
    `checkForPendingDocuments` in `ios/NitroShareIntent.swift`) that watches
@@ -88,6 +107,28 @@ npm install react-native-nitro-share-intent react-native-nitro-modules
    [`NOTES.md`](./NOTES.md) in this repo for the exact manual steps a
    maintainer/consumer needs to follow in Xcode (new target, entitlements,
    App Group identifier, `NSExtension` Info.plist keys, etc).
+
+#### Manual AppDelegate setup (optional)
+
+Only needed if you disabled the runtime hook with
+`NitroShareIntentAppDelegateProxyEnabled = NO`, or your build strips the hook
+(the hook relies on the `-ObjC` linker flag, which React Native templates set
+by default). Add this to `AppDelegate.swift`:
+
+```swift
+func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+  NotificationCenter.default.post(
+    name: NSNotification.Name("ShareIntentReceived"),
+    object: nil,
+    userInfo: ["url": url]
+  )
+  return true
+}
+```
+
+The pre-0.6.0 `AppDidFinishLaunching` post in
+`didFinishLaunchingWithOptions` is **no longer needed at all** - inbox
+monitoring now starts on its own. Leaving it in place is harmless.
 
 ### Android Setup
 **Configure Intent Filters in AndroidManifest.xml**:
@@ -121,34 +162,16 @@ npm install react-native-nitro-share-intent react-native-nitro-modules
    </activity>
    ```
 
-> ⚠️ **Required: override `onNewIntent` in `MainActivity`**
+> ✅ **No `MainActivity` changes required** (since v0.6.0). `ReactActivity`
+> already forwards `onNewIntent` through React Native's `ActivityEventListener`
+> mechanism, which `NitroShareIntent` registers against - so re-shares to an
+> already-running app reach JavaScript with zero custom code. (`launchMode="singleTask"`
+> in the manifest, as shown above, is still needed so re-shares don't spawn a
+> duplicate Activity.)
 >
-> Because the Activity uses `launchMode="singleTask"` (or `singleTop`) - needed so sharing
-> to an already-running instance of your app doesn't spawn a duplicate Activity - Android
-> delivers subsequent share intents through `onNewIntent(Intent)` instead of creating a new
-> Activity. If you don't forward that intent, **re-sharing to an already-running app will
-> never reach JavaScript** (only the very first share, at cold start, will work).
->
-> Add this override to your `MainActivity.kt` (see `example/android/app/src/main/java/nitroshareintent/example/MainActivity.kt` for a working reference):
->
-> ```kotlin
-> import android.content.Intent
->
-> class MainActivity : ReactActivity() {
->   // ...
->
->   override fun onNewIntent(intent: Intent) {
->     // Keep `Activity.getIntent()` up to date so `getInitialShare()` sees the freshest intent.
->     setIntent(intent)
->     // Forwards the intent through React Native's ActivityEventListener mechanism, which
->     // `NitroShareIntent` is already registered against - this is what actually delivers the
->     // share to JS. If you already override `onNewIntent` for other purposes (e.g. a deep
->     // linking library), make sure you still call `super.onNewIntent(intent)` (or otherwise
->     // forward to `ReactInstanceManager`/`ReactHost`), or shares will silently stop working.
->     super.onNewIntent(intent)
->   }
-> }
-> ```
+> The only way to break this is overriding `onNewIntent` yourself (or via
+> another library) **without calling `super.onNewIntent(intent)`** - if you do
+> override it, keep the `super` call, or shares will silently stop working.
 
 ## 🚀 Quick Start
 
