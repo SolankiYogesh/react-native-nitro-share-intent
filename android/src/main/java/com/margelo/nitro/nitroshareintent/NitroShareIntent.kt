@@ -23,37 +23,91 @@ import com.margelo.nitro.core.Promise
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Date
+import java.util.concurrent.ConcurrentHashMap
 import androidx.core.net.toUri
 import com.facebook.react.bridge.ActivityEventListener
 import com.margelo.nitro.core.NullType
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @DoNotStrip
 class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
 
-  private var intentListener: ((SharePayload) -> Unit)? = null
+  // Keyed maps so multiple `useShareIntent()` hook instances (or any other
+  // caller) can each register their own listener without stomping on one
+  // another. `nextListenerId` is shared across both listener kinds so ids
+  // stay unique and `removeListener` can safely look up either map.
+  private val intentListeners = ConcurrentHashMap<Double, (SharePayload) -> Unit>()
+  private val errorListeners = ConcurrentHashMap<Double, (String) -> Unit>()
+  @Volatile
   private var pendingIntent: SharePayload? = null
+
+  // Cache of the processed `getInitialShare()` result so repeated calls
+  // don't re-read/re-copy `currentActivity.intent` (e.g. re-copying large
+  // content:// files) from scratch every time.
+  @Volatile
+  private var hasCachedInitialShare = false
+  @Volatile
+  private var cachedInitialShare: SharePayload? = null
+
   private var nextListenerId = 0.0
 
+  // Background scope used so large file copies never block the thread that
+  // delivered the intent (e.g. the main/UI thread via `onNewIntent`).
+  private val moduleScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
   companion object {
+    private const val TAG = "NitroShareIntent"
     val instance: NitroShareIntent by lazy { NitroShareIntent() }
   }
 
   fun handleIntent(intent: Intent?) {
     if (!isShareIntent(intent)) return
-    val payload = processIntent(intent)
-    if (payload != null) {
-      intentListener?.invoke(payload)
-      pendingIntent = payload
+    moduleScope.launch {
+      try {
+        val payload = processIntent(intent)
+        if (payload != null) {
+          pendingIntent = payload
+          hasCachedInitialShare = true
+          cachedInitialShare = payload
+          notifyListeners(payload)
+        }
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to process incoming share intent", e)
+        notifyError("Failed to process incoming share intent: ${e.message}")
+      }
     }
   }
 
   override fun getInitialShare(): Promise<SharePayload?> {
+    if (hasCachedInitialShare) {
+      return Promise.resolved(cachedInitialShare)
+    }
+
     val intent = NitroModules.applicationContext?.currentActivity?.intent
 
-    return if (intent != null && isShareIntent(intent)) {
-      Promise.resolved(processIntent(intent))
-    } else {
-      Promise.resolved(null)
+    if (intent == null || !isShareIntent(intent)) {
+      hasCachedInitialShare = true
+      cachedInitialShare = null
+      return Promise.resolved(null)
+    }
+
+    return Promise.async {
+      withContext(Dispatchers.IO) {
+        try {
+          val payload = processIntent(intent)
+          hasCachedInitialShare = true
+          cachedInitialShare = payload
+          payload
+        } catch (e: Exception) {
+          Log.e(TAG, "Failed to read/parse the pending share intent", e)
+          notifyError("Failed to read/parse the pending share intent: ${e.message}")
+          throw e
+        }
+      }
     }
   }
 
@@ -64,9 +118,44 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
   }
 
   override fun onIntentListener(listener: (SharePayload) -> Unit): Double {
-    intentListener = listener
     nextListenerId++
-    return nextListenerId
+    val id = nextListenerId
+    intentListeners[id] = listener
+
+    // Replay a pending intent to a newly attached listener, matching the
+    // behavior already present on iOS, so shares that happened before the
+    // JS listener attached aren't lost.
+    pendingIntent?.let { pending ->
+      listener(pending)
+    }
+
+    return id
+  }
+
+  override fun onErrorListener(listener: (String) -> Unit): Double {
+    nextListenerId++
+    val id = nextListenerId
+    errorListeners[id] = listener
+    return id
+  }
+
+  override fun removeListener(listenerId: Double) {
+    intentListeners.remove(listenerId)
+    errorListeners.remove(listenerId)
+  }
+
+  override fun clearShareIntent() {
+    pendingIntent = null
+    hasCachedInitialShare = false
+    cachedInitialShare = null
+  }
+
+  private fun notifyListeners(payload: SharePayload) {
+    intentListeners.values.forEach { it.invoke(payload) }
+  }
+
+  private fun notifyError(message: String) {
+    errorListeners.values.forEach { it.invoke(message) }
   }
 
   private fun processIntent(intent: Intent?): SharePayload? {

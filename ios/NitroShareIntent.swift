@@ -7,8 +7,13 @@ import CoreGraphics
 import ImageIO
 
 class NitroShareIntent: HybridNitroShareIntentSpec {
-    
-    private var intentListener: ((SharePayload) -> Void)?
+
+    // Keyed maps so multiple `useShareIntent()` hook instances (or any other
+    // caller) can each register their own listener without stomping on one
+    // another. `nextListenerId` is shared across both listener kinds so ids
+    // stay unique and `removeListener` can safely look up either map.
+    private var intentListeners: [Double: (SharePayload) -> Void] = [:]
+    private var errorListeners: [Double: (String) -> Void] = [:]
     private var pendingIntent: SharePayload?
     private var nextListenerId: Double = 0
     private var processedFiles: Set<String> = []
@@ -16,37 +21,56 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
     private var hasCheckedInitialInbox = false
     private var inboxCheckTimer: Timer?
     private var hasFoundFileInCurrentSession = false
-    
+
     static let instance = NitroShareIntent()
-    
+
     override init() {
         super.init()
         setupNotificationObserver()
         setupAppLifecycleObservers()
     }
-    
+
     func getInitialShare() throws -> Promise<SharePayload?> {
         if !hasCheckedInitialInbox {
             hasCheckedInitialInbox = true
             startInboxMonitoring()
         }
-        
+
         return Promise.resolved(withResult: pendingIntent)
     }
-    
+
     func onIntentListener(listener: @escaping (SharePayload) -> Void) throws -> Double {
-        intentListener = listener
         nextListenerId += 1
-        
+        let id = nextListenerId
+        intentListeners[id] = listener
+
+        // Replay a pending intent to a newly attached listener so shares
+        // that happened before this listener attached aren't lost.
         if let pending = pendingIntent {
             DispatchQueue.main.async {
                 listener(pending)
             }
         }
-        
-        return nextListenerId
+
+        return id
     }
-    
+
+    func onErrorListener(listener: @escaping (String) -> Void) throws -> Double {
+        nextListenerId += 1
+        let id = nextListenerId
+        errorListeners[id] = listener
+        return id
+    }
+
+    func removeListener(listenerId: Double) throws {
+        intentListeners.removeValue(forKey: listenerId)
+        errorListeners.removeValue(forKey: listenerId)
+    }
+
+    func clearShareIntent() throws {
+        pendingIntent = nil
+    }
+
     private func setupNotificationObserver() {
         NotificationCenter.default.addObserver(
             self,
@@ -175,54 +199,75 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
     }
     
     private func handleSingleShare(fileUrl: URL, text: String? = nil, subject: String? = nil) {
-        let fileInfo = getFileInfo(for: fileUrl)
-        var extras: [String: String] = [:]
-        
-        if let text = text { extras["text"] = text }
-        if let subject = subject { extras["subject"] = subject }
-        
-        fileInfo.forEach { key, value in
-            extras[key] = value
-        }
-        
-        let filePath = fileInfo["filePath"] ?? fileUrl.absoluteString
-        
-        let payload = SharePayload(
-            type: .file,
-            text: nil,
-            files: [filePath],
-            extras: extras.isEmpty ? nil : extras
-        )
-        notifyListeners(payload)
-        
-        if fileUrl.path.contains("/Inbox/") {
-            cleanupInboxFile(fileUrl)
+        // `getFileInfo` can copy the shared file's bytes into the cache
+        // directory (see `getAbsolutePath`), which can be slow for large
+        // files - run it off the thread that delivered the intent (usually
+        // main) so the UI never blocks on it.
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self = self else { return }
+
+            let fileInfo = self.getFileInfo(for: fileUrl)
+            var extras: [String: String] = [:]
+
+            if let text = text { extras["text"] = text }
+            if let subject = subject { extras["subject"] = subject }
+
+            fileInfo.forEach { key, value in
+                extras[key] = value
+            }
+
+            let filePath = fileInfo["filePath"] ?? fileUrl.absoluteString
+
+            let payload = SharePayload(
+                type: .file,
+                text: nil,
+                files: [filePath],
+                extras: extras.isEmpty ? nil : extras
+            )
+            self.notifyListeners(payload)
+
+            if fileUrl.path.contains("/Inbox/") {
+                self.cleanupInboxFile(fileUrl)
+            } else {
+                // Files delivered outside of `/Inbox/` (e.g. a direct file
+                // URL) are never cleaned up by `cleanupInboxFile`, so make
+                // sure their dedup entry still expires - otherwise
+                // re-sharing the same path again in this session would be
+                // silently swallowed forever.
+                self.scheduleProcessedFileExpiry(fileUrl)
+            }
         }
     }
-    
+
     private func handleMultipleShare(files: [URL], text: String? = nil, subject: String? = nil) {
-        var extras: [String: String] = [:]
-        
-        if let text = text { extras["text"] = text }
-        if let subject = subject { extras["subject"] = subject }
-        extras["fileCount"] = String(files.count)
-        
-        let filePaths = files.map { url -> String in
-            let fileInfo = getFileInfo(for: url)
-            return fileInfo["filePath"] ?? url.absoluteString
-        }
-        
-        let payload = SharePayload(
-            type: .multiple,
-            text: nil,
-            files: filePaths,
-            extras: extras.isEmpty ? nil : extras
-        )
-        notifyListeners(payload)
-        
-        files.forEach { url in
-            if url.path.contains("/Inbox/") {
-                cleanupInboxFile(url)
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self = self else { return }
+
+            var extras: [String: String] = [:]
+
+            if let text = text { extras["text"] = text }
+            if let subject = subject { extras["subject"] = subject }
+            extras["fileCount"] = String(files.count)
+
+            let filePaths = files.map { url -> String in
+                let fileInfo = self.getFileInfo(for: url)
+                return fileInfo["filePath"] ?? url.absoluteString
+            }
+
+            let payload = SharePayload(
+                type: .multiple,
+                text: nil,
+                files: filePaths,
+                extras: extras.isEmpty ? nil : extras
+            )
+            self.notifyListeners(payload)
+
+            files.forEach { url in
+                if url.path.contains("/Inbox/") {
+                    self.cleanupInboxFile(url)
+                } else {
+                    self.scheduleProcessedFileExpiry(url)
+                }
             }
         }
     }
@@ -261,28 +306,35 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
                 }
             }
         } catch {
-            // Error getting file info
+            notifyError("Failed to read file metadata for \(url.lastPathComponent): \(error.localizedDescription)")
         }
-        
+
         return fileInfo
     }
-    
+
     private func getAbsolutePath(for url: URL) -> String? {
         if url.isFileURL {
             return url.path
         }
-        
+
         // For non-file URLs, copy to cache directory
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            notifyError("Failed to read shared file at \(url.absoluteString): \(error.localizedDescription)")
+            return nil
+        }
+
         let fileName = url.lastPathComponent.isEmpty ? "file" : url.lastPathComponent
         let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
         let targetUrl = cacheDir.appendingPathComponent(fileName)
-        
+
         do {
             try data.write(to: targetUrl)
             return targetUrl.path
         } catch {
+            notifyError("Failed to copy shared file to \(targetUrl.path): \(error.localizedDescription)")
             return nil
         }
     }
@@ -363,31 +415,57 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
                 }
             }
         } catch {
-            // Error scanning Inbox
+            notifyError("Failed to scan Inbox directory: \(error.localizedDescription)")
         }
     }
-    
+
     private func cleanupInboxFile(_ url: URL) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self = self else { return }
+            defer {
+                // Always expire the dedup entry, regardless of whether the
+                // file itself still existed/could be removed - otherwise a
+                // failed cleanup would swallow re-shares of this path forever.
+                self.processedFiles.remove(url.path)
+            }
             do {
                 if FileManager.default.fileExists(atPath: url.path) {
                     try FileManager.default.removeItem(at: url)
-                    self.processedFiles.remove(url.path)
                 }
             } catch {
-                // Error cleaning up Inbox file
+                self.notifyError("Failed to clean up Inbox file \(url.lastPathComponent): \(error.localizedDescription)")
             }
         }
     }
-    
-    private func notifyListeners(_ payload: SharePayload) {
-        pendingIntent = payload
-        
-        if let listener = intentListener {
-            listener(payload)
+
+    /// Expires a `processedFiles` dedup entry for a file that isn't cleaned
+    /// up via `cleanupInboxFile` (i.e. it wasn't delivered through
+    /// `/Inbox/`), so re-sharing the same path again in the same session
+    /// isn't silently swallowed forever.
+    private func scheduleProcessedFileExpiry(_ url: URL) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.processedFiles.remove(url.path)
         }
     }
-    
+
+    private func notifyListeners(_ payload: SharePayload) {
+        // Confine the mutation of `pendingIntent`/`intentListeners` to the
+        // main thread, since `handleSingleShare`/`handleMultipleShare` may
+        // now call this from a background utility queue.
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.pendingIntent = payload
+            self.intentListeners.values.forEach { $0(payload) }
+        }
+    }
+
+    private func notifyError(_ message: String) {
+        let listeners = errorListeners.values
+        DispatchQueue.main.async {
+            listeners.forEach { $0(message) }
+        }
+    }
+
     deinit {
         inboxCheckTimer?.invalidate()
         NotificationCenter.default.removeObserver(self)
