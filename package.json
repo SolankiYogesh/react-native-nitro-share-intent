@@ -10,6 +10,11 @@
       "types": "./lib/typescript/src/index.d.ts",
       "default": "./lib/module/index.js"
     },
+    "./mock": {
+      "source": "./src/mock.ts",
+      "types": "./lib/typescript/src/mock.d.ts",
+      "default": "./lib/module/mock.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
