@@ -34,6 +34,10 @@ module NitroShareIntentSetup
   def install!(pod_root)
     require 'xcodeproj'
 
+    # CocoaPods evaluates a podspec several times per `pod install`; without
+    # this the whole setup (and its output) would run once per evaluation.
+    return if $nitro_share_intent_installed
+
     root = Pod::Config.instance.installation_root.to_s
     return if root.nil? || root.empty?
 
@@ -48,18 +52,23 @@ module NitroShareIntentSetup
     return if host.nil?
 
     host_settings = host.build_configurations.first.build_settings
-    bundle_id = host_settings['PRODUCT_BUNDLE_IDENTIFIER'].to_s
+    # The React Native template ships `org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)`,
+    # so the raw setting almost never is a literal identifier.
+    bundle_id = expand_setting(host_settings['PRODUCT_BUNDLE_IDENTIFIER'], host_settings, host.name)
 
     if bundle_id.empty? || bundle_id.include?('$(')
-      Pod::UI.warn "[NitroShareIntent] Host bundle identifier is '#{bundle_id}' and can't be " \
-                   'resolved here - set nitroShareIntent.ios.appGroup in package.json to enable ' \
-                   'the Share Extension.'
+      Pod::UI.warn "[NitroShareIntent] Host bundle identifier is " \
+                   "'#{host_settings['PRODUCT_BUNDLE_IDENTIFIER']}' and can't be resolved here - " \
+                   'set nitroShareIntent.ios.appGroup in package.json to enable the Share Extension.'
       return if config['appGroup'].to_s.empty?
     end
 
     name = (config['extensionName'] || DEFAULT_EXTENSION_NAME).to_s
     app_group = (config['appGroup'] || "group.#{bundle_id}.nitroshareintent").to_s
-    extension_bundle_id = "#{bundle_id}.#{name}"
+    # With an unresolvable host id, derive the extension's from the App Group
+    # (`group.com.acme.app` -> `com.acme.app`) so it stays a valid identifier.
+    extension_prefix = bundle_id.empty? || bundle_id.include?('$(') ? app_group.sub(/\Agroup\./, '') : bundle_id
+    extension_bundle_id = "#{extension_prefix}.#{name}"
     deployment = host_settings['IPHONEOS_DEPLOYMENT_TARGET'] || '15.1'
 
     created = project.targets.none? { |t| t.name == name }
@@ -80,6 +89,7 @@ module NitroShareIntentSetup
 
     project.save
 
+    $nitro_share_intent_installed = true
     announce(created, name, app_group)
   rescue LoadError, StandardError => e
     # Never take a consumer's `pod install` down over this - the app itself
@@ -95,6 +105,24 @@ module NitroShareIntentSetup
     ((parsed['nitroShareIntent'] || {})['ios'] || {})
   rescue JSON::ParserError
     {}
+  end
+
+  # Expands `$(SETTING)` / `$(SETTING:modifier)` references the way Xcode does,
+  # far enough to turn a templated PRODUCT_BUNDLE_IDENTIFIER into a real one.
+  def expand_setting(value, settings, target_name, depth = 0)
+    value = value.to_s
+    return value if depth > 4 || !value.include?('$(')
+
+    value.gsub(/\$\(([A-Za-z0-9_]+)(?::([A-Za-z0-9_]+))?\)/) do
+      key = Regexp.last_match(1)
+      modifier = Regexp.last_match(2)
+
+      raw = settings[key].to_s
+      raw = target_name if raw.empty? && %w[PRODUCT_NAME TARGET_NAME].include?(key)
+      raw = expand_setting(raw, settings, target_name, depth + 1)
+
+      modifier == 'rfc1034identifier' ? raw.gsub(/[^A-Za-z0-9.-]/, '-') : raw
+    end
   end
 
   def find_user_project(root)

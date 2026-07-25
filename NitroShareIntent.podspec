@@ -35,7 +35,7 @@ Pod::Spec.new do |s|
   # Podfile changes. Opt out with
   # `"nitroShareIntent": { "ios": { "enabled": false } }` in the app's
   # package.json.
-  load File.join(__dir__, 'ios', 'NitroShareIntentSetup.rb')
+  require File.join(__dir__, 'ios', 'NitroShareIntentSetup.rb')
   NitroShareIntentSetup.install!(__dir__)
 
   install_modules_dependencies(s)
