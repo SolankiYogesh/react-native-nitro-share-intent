@@ -26,6 +26,30 @@ target 'NitroShareIntentExample' do
   )
 
   post_install do |installer|
+    # Patch fmt to disable consteval on Xcode 26+ (broken Apple Clang consteval).
+    # Done in Ruby rather than via `sed`, which silently no-ops when the
+    # escaping doesn't survive the shell and leaves the build broken - the
+    # failure only shows up on a device build, where hermes-engine (and fmt)
+    # compile from source as C++20.
+    fmt_base_h = File.join(installer.sandbox.root, 'fmt/include/fmt/base.h')
+    marker = 'consteval is broken in Apple clang from Xcode 26'
+    if File.exist?(fmt_base_h)
+      contents = File.read(fmt_base_h)
+      original = "// Detect consteval, C++20 constexpr extensions and std::is_constant_evaluated.\n#if !defined(__cpp_lib_is_constant_evaluated)"
+      if !contents.include?(marker) && contents.include?(original)
+        patched = <<~PATCH.chomp
+          // Detect consteval, C++20 constexpr extensions and std::is_constant_evaluated.
+          // #{marker}+
+          #if defined(__apple_build_version__) && __apple_build_version__ >= 16000000L
+          #  define FMT_USE_CONSTEVAL 0
+          #elif !defined(__cpp_lib_is_constant_evaluated)
+        PATCH
+        File.write(fmt_base_h, contents.sub(original, patched))
+      elsif !contents.include?(marker)
+        Pod::UI.warn 'fmt/base.h consteval block not found - Xcode 26 patch skipped'
+      end
+    end
+
     # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202
     react_native_post_install(
       installer,

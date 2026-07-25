@@ -12,10 +12,22 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
     // caller) can each register their own listener without stomping on one
     // another. `nextListenerId` is shared across both listener kinds so ids
     // stay unique and `removeListener` can safely look up either map.
+    //
+    // These are touched from the JS thread (the Nitro methods below), the
+    // main thread (notification handlers) and a background utility queue
+    // (file metadata reads), so every access goes through `stateLock` -
+    // concurrent access to a Swift Dictionary is a crash, not just a race.
+    private let stateLock = NSLock()
     private var intentListeners: [Double: (SharePayload) -> Void] = [:]
     private var errorListeners: [Double: (String) -> Void] = [:]
     private var pendingIntent: SharePayload?
     private var nextListenerId: Double = 0
+
+    private func withLock<T>(_ body: () -> T) -> T {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return body()
+    }
     private var processedFiles: Set<String> = []
     // The same URL open can reach us through more than one source (the
     // auto-installed AppDelegate hook, RCTLinkingManager's
@@ -47,22 +59,33 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
     }
 
     func getInitialShare() throws -> Promise<SharePayload?> {
-        if !hasCheckedInitialInbox {
-            hasCheckedInitialInbox = true
-            startInboxMonitoring()
+        // This runs on the JS thread, but the inbox monitoring state
+        // (`processedFiles`, the timer, `hasFoundFileInCurrentSession`) is
+        // main-thread confined - scanning from here directly would race with
+        // a URL arriving through the AppDelegate hook and deliver the same
+        // file twice.
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if !self.hasCheckedInitialInbox {
+                self.hasCheckedInitialInbox = true
+                self.startInboxMonitoring()
+            }
         }
 
-        return Promise.resolved(withResult: pendingIntent)
+        return Promise.resolved(withResult: withLock { pendingIntent })
     }
 
     func onIntentListener(listener: @escaping (SharePayload) -> Void) throws -> Double {
-        nextListenerId += 1
-        let id = nextListenerId
-        intentListeners[id] = listener
+        let (id, pending): (Double, SharePayload?) = withLock {
+            nextListenerId += 1
+            let id = nextListenerId
+            intentListeners[id] = listener
+            return (id, pendingIntent)
+        }
 
         // Replay a pending intent to a newly attached listener so shares
         // that happened before this listener attached aren't lost.
-        if let pending = pendingIntent {
+        if let pending = pending {
             DispatchQueue.main.async {
                 listener(pending)
             }
@@ -72,19 +95,23 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
     }
 
     func onErrorListener(listener: @escaping (String) -> Void) throws -> Double {
-        nextListenerId += 1
-        let id = nextListenerId
-        errorListeners[id] = listener
-        return id
+        return withLock {
+            nextListenerId += 1
+            let id = nextListenerId
+            errorListeners[id] = listener
+            return id
+        }
     }
 
     func removeListener(listenerId: Double) throws {
-        intentListeners.removeValue(forKey: listenerId)
-        errorListeners.removeValue(forKey: listenerId)
+        withLock {
+            intentListeners.removeValue(forKey: listenerId)
+            errorListeners.removeValue(forKey: listenerId)
+        }
     }
 
     func clearShareIntent() throws {
-        pendingIntent = nil
+        withLock { pendingIntent = nil }
     }
 
     private func setupNotificationObserver() {
@@ -133,6 +160,10 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
     
     @objc private func handleAppDidBecomeActive(_ notification: Notification) {
         hasFoundFileInCurrentSession = false
+        // The Share Extension drop is checked first and unconditionally: it
+        // runs while the app is backgrounded, so becoming active is the main
+        // moment a share can be waiting there.
+        checkForPendingSharedContainer()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             self.checkForPendingDocuments()
         }
@@ -141,7 +172,8 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
     private func startInboxMonitoring() {
         inboxCheckTimer?.invalidate()
         hasFoundFileInCurrentSession = false
-        
+
+        checkForPendingSharedContainer()
         checkForPendingDocuments()
         
         let delays: [Double] = [0.3, 0.7, 1.2, 2.0, 3.0, 4.0, 5.0]
@@ -426,6 +458,89 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
         }
     }
     
+    /// App Group id written into the host app's Info.plist by
+    /// `NitroShareIntentSetup.rb`. Absent when the auto-generated Share
+    /// Extension is disabled, in which case shared-container polling is a
+    /// no-op and only `Documents/Inbox` is watched.
+    private var appGroupIdentifier: String? {
+        Bundle.main.object(forInfoDictionaryKey: "NitroShareIntentAppGroup") as? String
+    }
+
+    /// Collects drops written by the Share Extension (see
+    /// `ios/ShareExtension/NitroShareViewController.swift`). Each drop is a
+    /// directory containing the copied files plus a `payload.json` written
+    /// last - directories without it are still being filled and are skipped.
+    private func checkForPendingSharedContainer() {
+        guard let appGroup = appGroupIdentifier,
+              let container = FileManager.default
+                .containerURL(forSecurityApplicationGroupIdentifier: appGroup) else {
+            return
+        }
+
+        let root = container.appendingPathComponent("NitroShareIntent", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: root.path) else { return }
+
+        let drops: [URL]
+        do {
+            drops = try FileManager.default
+                .contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+                .filter { !$0.lastPathComponent.hasPrefix(".") }
+                .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        } catch {
+            notifyError("Failed to scan the shared container: \(error.localizedDescription)")
+            return
+        }
+
+        for drop in drops {
+            let manifest = drop.appendingPathComponent("payload.json")
+            guard FileManager.default.fileExists(atPath: manifest.path) else { continue }
+
+            if let payload = readDrop(at: drop, manifest: manifest) {
+                notifyListeners(payload)
+            }
+
+            // Consumed either way - a drop we can't parse would otherwise be
+            // retried on every activation for the life of the install.
+            try? FileManager.default.removeItem(at: drop)
+        }
+    }
+
+    private func readDrop(at drop: URL, manifest: URL) -> SharePayload? {
+        guard let data = try? Data(contentsOf: manifest),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            notifyError("Shared container drop \(drop.lastPathComponent) has an unreadable payload.json")
+            return nil
+        }
+
+        let names = (json["files"] as? [String]) ?? []
+        // The extension stores bare filenames; the host needs absolute paths,
+        // and the files live in the group container which it can read directly.
+        let paths = names.map { drop.appendingPathComponent($0).path }
+        let text = json["text"] as? String
+
+        var extras = (json["extras"] as? [String: String]) ?? [:]
+        for path in paths {
+            let url = URL(fileURLWithPath: path)
+            getFileInfo(for: url).forEach { key, value in
+                if extras[key] == nil { extras[key] = value }
+            }
+        }
+
+        let type: ShareType
+        switch json["type"] as? String {
+        case "multiple": type = .multiple
+        case "file": type = .file
+        default: type = paths.isEmpty ? .text : .file
+        }
+
+        return SharePayload(
+            type: type,
+            text: text,
+            files: paths.isEmpty ? nil : paths,
+            extras: extras.isEmpty ? nil : extras
+        )
+    }
+
     private func checkForPendingDocuments() {
         guard !isCheckingInbox else {
             return
@@ -505,18 +620,23 @@ class NitroShareIntent: HybridNitroShareIntentSpec {
     }
 
     private func notifyListeners(_ payload: SharePayload) {
-        // Confine the mutation of `pendingIntent`/`intentListeners` to the
-        // main thread, since `handleSingleShare`/`handleMultipleShare` may
-        // now call this from a background utility queue.
+        // Deliver on the main thread, since `handleSingleShare` /
+        // `handleMultipleShare` may call this from a background utility
+        // queue. The snapshot is taken under the lock and the callbacks are
+        // invoked outside it, so a listener that calls back into
+        // `removeListener` can't deadlock.
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.pendingIntent = payload
-            self.intentListeners.values.forEach { $0(payload) }
+            let listeners = self.withLock { () -> [(SharePayload) -> Void] in
+                self.pendingIntent = payload
+                return Array(self.intentListeners.values)
+            }
+            listeners.forEach { $0(payload) }
         }
     }
 
     private func notifyError(_ message: String) {
-        let listeners = errorListeners.values
+        let listeners = withLock { Array(errorListeners.values) }
         DispatchQueue.main.async {
             listeners.forEach { $0(message) }
         }

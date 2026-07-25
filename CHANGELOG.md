@@ -5,6 +5,92 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-07-26
+
+### Added
+
+- **iOS: the Share Extension is now created for you during `pod install`.** The
+  app finally appears in the system Share Sheet with no Xcode target to add, no
+  native code to write, and no `Podfile` changes
+  (`ios/NitroShareIntentSetup.rb`). The generated target is embedded in the host
+  app, and its principal class ships inside the pod
+  (`ios/ShareExtension/NitroShareViewController.swift`), so the target contains
+  no app-authored source at all.
+- **iOS: App Group hand-off.** A Share Extension runs in its own sandbox and
+  cannot write into the host app's `Documents/Inbox`, so shared items are
+  written into the App Group container and collected by the host on launch and
+  on `didBecomeActive`. The App Group is added to both targets automatically.
+- **Configuration through the app's `package.json`** (no `ios/` edits), all
+  optional:
+
+  ```json
+  {
+    "nitroShareIntent": {
+      "ios": {
+        "enabled": true,
+        "appGroup": "group.com.acme.app",
+        "extensionName": "NitroShareExtension",
+        "openHostApp": true,
+        "activation": { "images": 10, "movies": 10, "files": 10, "text": true, "urls": 1 }
+      }
+    }
+  }
+  ```
+
+  Set `enabled` to `false` to opt out of the generated target entirely.
+
+### Fixed
+
+- **iOS: the app crashed on every incoming share.** Any app declaring
+  `LSSupportsOpeningDocumentsInPlace` (i.e. any app that accepts shares) was
+  terminated at launch with
+  `NSInternalInconsistencyException: Application has LSSupportsOpeningDocumentsInPlace key, but doesn't implement application:openURL:options:`.
+
+  The runtime hook installed that method from a
+  `UIApplicationDidFinishLaunchingNotification` observer registered with
+  `queue: [NSOperationQueue mainQueue]`, which *enqueues* the block - it ran a
+  runloop turn after UIKit had already inspected the delegate and aborted. The
+  hook now swizzles `-[UIApplication setDelegate:]` and installs the method
+  **before** calling through to the original implementation: `setDelegate:`
+  caches which optional delegate methods exist in an internal bitmask, and UIKit
+  consults that cache rather than `respondsToSelector:`, so installing after the
+  original call is still too late.
+- **iOS: data race on the listener maps.** `intentListeners`, `errorListeners`
+  and `pendingIntent` were mutated from the JS thread while being read from the
+  main thread and a background queue. Concurrent access to a Swift `Dictionary`
+  is a crash, not merely a lost update. All access is now serialised, with
+  callbacks invoked outside the lock so a listener that calls `removeListener`
+  cannot deadlock.
+- **iOS: `getInitialShare()` scanned the Inbox on the JS thread**, racing with
+  URLs arriving on the main thread through the AppDelegate hook. The scan is now
+  confined to the main thread with the rest of the monitoring state.
+- **Android: a cold-start share could be dropped permanently.** When
+  `getInitialShare()` ran before the activity was attached to the React context,
+  it cached "nothing shared" forever, so the launch intent was never delivered.
+  The negative result is no longer cached when there is no activity to inspect.
+- **Android: the module did not compile.** An unused
+  `com.margelo.nitro.core.NullType` import failed to resolve.
+
+### Changed
+
+- Example app: `react-native-nitro-modules` moved to `^0.31.3`. It was pinned to
+  `^0.29.8`, so yarn nested an incompatible copy under `example/node_modules`
+  and the Android build failed on a missing `NitroModules/JNICallable.hpp`.
+- Example app: the `Podfile`'s Xcode 26 `fmt`/`consteval` patch is applied in
+  Ruby instead of through `sed`. The shell escaping did not survive, so the
+  patch silently no-op'd and only surfaced on a device build, where
+  `hermes-engine` and `fmt` compile from source as C++20.
+
+### Known limitations
+
+- **Provisioning cannot be automated.** The App Groups capability must exist on
+  both App IDs. Automatic signing usually creates it on the first build;
+  manual signing and CI may need it added in the developer portal.
+- **`openHostApp` reaches `openURL:` through the responder chain**, which is how
+  comparable libraries foreground the app from an extension, but it is a grey
+  area for App Store review. Set `"openHostApp": false` to skip it - the share is
+  still collected the next time the app becomes active.
+
 ## [0.6.0] - 2026-07-21
 
 ### 🚨 Breaking / migration notes

@@ -26,7 +26,6 @@ import java.util.Date
 import java.util.concurrent.ConcurrentHashMap
 import androidx.core.net.toUri
 import com.facebook.react.bridge.ActivityEventListener
-import com.margelo.nitro.core.NullType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -87,7 +86,17 @@ class NitroShareIntent : HybridNitroShareIntentSpec(), ActivityEventListener{
       return Promise.resolved(cachedInitialShare)
     }
 
-    val intent = NitroModules.applicationContext?.currentActivity?.intent
+    val activity = NitroModules.applicationContext?.currentActivity
+    if (activity == null) {
+      // The activity isn't attached to the React context yet (early startup,
+      // or the process was restored in the background). Resolve as "nothing
+      // shared" for this call, but *don't* cache it - the launch intent is
+      // still sitting on the activity, and caching here would drop the share
+      // permanently for the rest of the process' life.
+      return Promise.resolved(null)
+    }
+
+    val intent = activity.intent
 
     if (intent == null || !isShareIntent(intent)) {
       hasCachedInitialShare = true

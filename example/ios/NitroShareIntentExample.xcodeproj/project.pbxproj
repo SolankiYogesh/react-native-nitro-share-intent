@@ -9,9 +9,37 @@
 /* Begin PBXBuildFile section */
 		0C80B921A6F3F58F76C31292 /* libPods-NitroShareIntentExample.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-NitroShareIntentExample.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		4D2CEC90B0091538A65CFBC6 /* NitroShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4DF7BFBAC4EA58080A542AF /* NitroShareViewController.swift */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		92F0EAD6E35D3F36AA77D43F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F90EE31FC4E9C263C872E2A8 /* Foundation.framework */; };
+		A5DACE97723B7684B7239EF5 /* NitroShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 62EDD9845A5444D209CDEC8A /* NitroShareExtension.appex */; };
+		E29745D60B11C62B66296E6A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		0DC7601F9AB4A88C447A3AE6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 73FBCB84F020A31C062F335C;
+			remoteInfo = NitroShareExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E19A3557EF9A1BF834BDDF50 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A5DACE97723B7684B7239EF5 /* NitroShareExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* NitroShareIntentExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NitroShareIntentExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -21,9 +49,12 @@
 		3B4392A12AC88292D35C810B /* Pods-NitroShareIntentExample.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NitroShareIntentExample.debug.xcconfig"; path = "Target Support Files/Pods-NitroShareIntentExample/Pods-NitroShareIntentExample.debug.xcconfig"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-NitroShareIntentExample.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NitroShareIntentExample.release.xcconfig"; path = "Target Support Files/Pods-NitroShareIntentExample/Pods-NitroShareIntentExample.release.xcconfig"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-NitroShareIntentExample.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-NitroShareIntentExample.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		62EDD9845A5444D209CDEC8A /* NitroShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NitroShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = NitroShareIntentExample/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = NitroShareIntentExample/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		E4DF7BFBAC4EA58080A542AF /* NitroShareViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NitroShareViewController.swift; path = ../../ios/ShareExtension/NitroShareViewController.swift; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		F90EE31FC4E9C263C872E2A8 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -32,6 +63,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				0C80B921A6F3F58F76C31292 /* libPods-NitroShareIntentExample.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6BA93623E075FA24E427EB91 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				92F0EAD6E35D3F36AA77D43F /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -55,6 +94,7 @@
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				5DCACB8F33CDC322A6C60F78 /* libPods-NitroShareIntentExample.a */,
+				FA451B69883A6ADB09874EE0 /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -74,6 +114,7 @@
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				BBD78D7AC51CEA395F1C20DB /* Pods */,
+				BD056054CCA412B3A9E67974 /* NitroShareExtension */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -84,6 +125,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* NitroShareIntentExample.app */,
+				62EDD9845A5444D209CDEC8A /* NitroShareExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -95,6 +137,22 @@
 				5709B34CF0A7D63546082F79 /* Pods-NitroShareIntentExample.release.xcconfig */,
 			);
 			path = Pods;
+			sourceTree = "<group>";
+		};
+		BD056054CCA412B3A9E67974 /* NitroShareExtension */ = {
+			isa = PBXGroup;
+			children = (
+				E4DF7BFBAC4EA58080A542AF /* NitroShareViewController.swift */,
+			);
+			name = NitroShareExtension;
+			sourceTree = SOURCE_ROOT;
+		};
+		FA451B69883A6ADB09874EE0 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				F90EE31FC4E9C263C872E2A8 /* Foundation.framework */,
+			);
+			name = iOS;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -111,15 +169,34 @@
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				00EEFC60759A1932668264C0 /* [CP] Embed Pods Frameworks */,
 				E235C05ADACE081382539298 /* [CP] Copy Pods Resources */,
+				E19A3557EF9A1BF834BDDF50 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				D6170A80A8D2687331026AFB /* PBXTargetDependency */,
 			);
 			name = NitroShareIntentExample;
 			productName = NitroShareIntentExample;
 			productReference = 13B07F961A680F5B00A75B9A /* NitroShareIntentExample.app */;
 			productType = "com.apple.product-type.application";
+		};
+		73FBCB84F020A31C062F335C /* NitroShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E042A5DA82525B2BA8FABDA4 /* Build configuration list for PBXNativeTarget "NitroShareExtension" */;
+			buildPhases = (
+				7C645075AA5189E74A5F0ECC /* Sources */,
+				6BA93623E075FA24E427EB91 /* Frameworks */,
+				EE1C77A1B85E6645B8FA7B4C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NitroShareExtension;
+			productName = NitroShareExtension;
+			productReference = 62EDD9845A5444D209CDEC8A /* NitroShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -148,6 +225,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* NitroShareIntentExample */,
+				73FBCB84F020A31C062F335C /* NitroShareExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -159,6 +237,14 @@
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				E29745D60B11C62B66296E6A /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE1C77A1B85E6645B8FA7B4C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -248,7 +334,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7C645075AA5189E74A5F0ECC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D2CEC90B0091538A65CFBC6 /* NitroShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D6170A80A8D2687331026AFB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = NitroShareExtension;
+			target = 73FBCB84F020A31C062F335C /* NitroShareExtension */;
+			targetProxy = 0DC7601F9AB4A88C447A3AE6 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
@@ -257,7 +360,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = NitroShareIntentExample/NitroShareIntentExample.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = D4G68WFLLQ;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = NitroShareIntentExample/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -271,7 +376,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "nitroshareintent.example";
+				PRODUCT_BUNDLE_IDENTIFIER = nitroshareintent.example;
 				PRODUCT_NAME = NitroShareIntentExample;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -285,7 +390,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = NitroShareIntentExample/NitroShareIntentExample.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = D4G68WFLLQ;
 				INFOPLIST_FILE = NitroShareIntentExample/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -298,12 +405,65 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "nitroshareintent.example";
+				PRODUCT_BUNDLE_IDENTIFIER = nitroshareintent.example;
 				PRODUCT_NAME = NitroShareIntentExample;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
+		};
+		2FE88BC50244A77490D39D77 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = NitroShareExtension/NitroShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = D4G68WFLLQ;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = NitroShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = nitroshareintent.example.NitroShareExtension;
+				PRODUCT_NAME = NitroShareExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		663085BABC723E5137EA7237 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = NitroShareExtension/NitroShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = D4G68WFLLQ;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = NitroShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = nitroshareintent.example.NitroShareExtension;
+				PRODUCT_NAME = NitroShareExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
 		};
 		83CBBA201A601CBA00E9B192 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -374,7 +534,10 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				USE_HERMES = true;
 			};
 			name = Debug;
 		};
@@ -439,7 +602,9 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -461,6 +626,15 @@
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,
 				83CBBA211A601CBA00E9B192 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E042A5DA82525B2BA8FABDA4 /* Build configuration list for PBXNativeTarget "NitroShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2FE88BC50244A77490D39D77 /* Release */,
+				663085BABC723E5137EA7237 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

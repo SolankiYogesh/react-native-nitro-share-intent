@@ -20,11 +20,23 @@ Pod::Spec.new do |s|
     "cpp/**/*.{hpp,cpp}",
   ]
 
+  # The Share Extension's principal class is compiled into the generated
+  # extension target (see ios/NitroShareIntentSetup.rb), not into the app.
+  s.exclude_files = "ios/ShareExtension/**/*"
+
   s.dependency 'React-jsi'
   s.dependency 'React-callinvoker'
 
   load 'nitrogen/generated/ios/NitroShareIntent+autolinking.rb'
   add_nitrogen_files(s)
+
+  # Creates + embeds the iOS Share Extension target in the consuming app, so
+  # `pod install` is the whole setup - no Xcode target, no native code, no
+  # Podfile changes. Opt out with
+  # `"nitroShareIntent": { "ios": { "enabled": false } }` in the app's
+  # package.json.
+  load File.join(__dir__, 'ios', 'NitroShareIntentSetup.rb')
+  NitroShareIntentSetup.install!(__dir__)
 
   install_modules_dependencies(s)
 end
