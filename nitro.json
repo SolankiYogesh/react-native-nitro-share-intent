@@ -9,8 +9,8 @@
   },
   "autolinking": {
     "NitroShareIntent": {
-      "swift": "NitroShareIntent",
-      "kotlin": "NitroShareIntent"
+      "ios": { "language": "swift", "implementationClassName": "NitroShareIntent" },
+      "android": { "language": "kotlin", "implementationClassName": "NitroShareIntent" }
     }
   },
   "ignorePaths": ["node_modules"]
